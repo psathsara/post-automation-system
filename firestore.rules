@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    function isAdmin() {
+      return hasRole("SUPER_ADMIN") || hasRole("ADMIN");
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn() && (request.auth.uid == userId || hasRole("SUPER_ADMIN"));
+      allow write: if hasRole("SUPER_ADMIN");
+    }
+
+    match /brands/{brandId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /templates/{templateId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    match /generationJobs/{jobId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if hasRole("SUPER_ADMIN");
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
