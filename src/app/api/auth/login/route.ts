@@ -79,6 +79,10 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
+  if (!hasSupabaseAdminEnv()) {
+    return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 });
+  }
+
   const usernameLower = parsed.data.username.toLowerCase();
   const supabase = getSupabaseAdmin();
   const { data: rows, error } = await supabase
