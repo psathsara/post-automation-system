@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getAdminDb } from "@/lib/firebase/admin";
+import { getSupabaseAdmin, hasSupabaseAdminEnv } from "@/lib/supabase/server";
 import type { Role } from "@/types/auth";
 
 type AuditEvent = {
@@ -13,8 +13,21 @@ type AuditEvent = {
 };
 
 export async function writeAuditLog(event: AuditEvent) {
-  await getAdminDb().collection("auditLogs").add({
-    ...event,
-    createdAt: new Date().toISOString(),
+  if (!hasSupabaseAdminEnv()) {
+    return;
+  }
+
+  const { error } = await getSupabaseAdmin().from("audit_logs").insert({
+    actor_id: event.actorId,
+    actor_role: event.actorRole,
+    action: event.action,
+    target: event.target,
+    metadata: event.metadata,
+    ip: event.ip,
+    created_at: new Date().toISOString(),
   });
+
+  if (error) {
+    throw error;
+  }
 }

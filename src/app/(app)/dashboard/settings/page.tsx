@@ -16,7 +16,7 @@ export default function SettingsPage() {
           <div className="rounded-lg border p-3">HttpOnly signed sessions</div>
           <div className="rounded-lg border p-3">CSRF double-submit tokens</div>
           <div className="rounded-lg border p-3">RBAC middleware</div>
-          <div className="rounded-lg border p-3">Firestore audit logs</div>
+          <div className="rounded-lg border p-3">Supabase audit logs</div>
         </CardContent>
       </Card>
     </div>

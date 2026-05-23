@@ -4,9 +4,8 @@ import { join } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import { brandIds } from "@/config/brands";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { hasFirebaseAdminEnv } from "@/lib/env/server";
-import { getAdminStorageBucket } from "@/lib/firebase/admin";
 import { writeAuditLog } from "@/lib/audit/audit-log";
+import { getSupabaseAdmin, hasSupabaseAdminEnv } from "@/lib/supabase/server";
 
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const maxBytes = 10 * 1024 * 1024;
@@ -31,8 +30,8 @@ export async function POST(request: NextRequest) {
   }
 
   const uploaded = [];
-  const useFirebaseStorage = hasFirebaseAdminEnv();
-  const bucket = useFirebaseStorage ? getAdminStorageBucket() : null;
+  const useSupabaseStorage = hasSupabaseAdminEnv();
+  const storage = useSupabaseStorage ? getSupabaseAdmin().storage.from("assets") : null;
 
   for (const file of files) {
     if (!allowedTypes.has(file.type) || file.size > maxBytes) {
@@ -41,21 +40,24 @@ export async function POST(request: NextRequest) {
 
     const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
     const fileName = `${randomUUID()}.${ext}`;
-    const path = useFirebaseStorage
+    const path = useSupabaseStorage
       ? `brands/${brandId}/uploads/${fileName}`
       : `/uploads/manual-edit/${brandId}/${fileName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    if (useFirebaseStorage && bucket) {
-      await bucket.file(path).save(buffer, {
+    if (storage) {
+      const { error } = await storage.upload(path, buffer, {
         contentType: file.type,
+        upsert: false,
         metadata: {
-          metadata: {
-            uploadedBy: user.sub,
-            originalName: file.name,
-          },
+          uploadedBy: user.sub,
+          originalName: file.name,
         },
       });
+
+      if (error) {
+        return NextResponse.json({ error: "Image upload failed." }, { status: 500 });
+      }
     } else {
       const uploadDir = join(process.cwd(), "public", "uploads", "manual-edit", brandId);
       await mkdir(uploadDir, { recursive: true });
@@ -65,13 +67,13 @@ export async function POST(request: NextRequest) {
     uploaded.push({
       name: file.name,
       path,
-      url: useFirebaseStorage ? undefined : path,
+      url: useSupabaseStorage ? undefined : path,
       contentType: file.type,
       size: file.size,
     });
   }
 
-  if (hasFirebaseAdminEnv()) {
+  if (hasSupabaseAdminEnv()) {
     await writeAuditLog({
       actorId: user.sub,
       actorRole: user.role,

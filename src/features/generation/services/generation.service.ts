@@ -1,8 +1,7 @@
 import { brandProfiles } from "@/config/brands";
 import { writeAuditLog } from "@/lib/audit/audit-log";
-import { getAdminDb } from "@/lib/firebase/admin";
-import { hasFirebaseAdminEnv } from "@/lib/env/server";
 import { sanitizeText } from "@/lib/security/sanitize";
+import { getSupabaseAdmin, hasSupabaseAdminEnv } from "@/lib/supabase/server";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { ManualEditInput } from "@/features/generation/schemas";
 import { getAiProvider } from "@/features/generation/services/ai-provider";
@@ -50,23 +49,54 @@ export async function createManualEditJob(input: ManualEditInput, actor: Session
     updatedAt: new Date().toISOString(),
   };
 
-  const ref = hasFirebaseAdminEnv()
-    ? await getAdminDb().collection("generationJobs").add(doc)
-    : { id: `dev-job-${crypto.randomUUID()}` };
+  let jobId = `dev-job-${crypto.randomUUID()}`;
 
-  if (hasFirebaseAdminEnv()) {
+  if (hasSupabaseAdminEnv()) {
+    const { data, error } = await getSupabaseAdmin()
+      .from<{ id: string }>("generation_jobs")
+      .insert({
+        brand_id: sanitizedInput.brandId,
+        template_id: sanitizedInput.templateId,
+        template_name: sanitizedInput.templateName,
+        tagline: sanitizedInput.tagline,
+        caption: sanitizedInput.caption,
+        content: sanitizedInput.content,
+        language: sanitizedInput.language,
+        post_type: sanitizedInput.postType,
+        theme: sanitizedInput.theme,
+        instructions: sanitizedInput.instructions,
+        assets: sanitizedInput.assets,
+        brand,
+        prompt,
+        ai_plan: aiPlan,
+        logo_placement: brand.logoPlacement,
+        status: doc.status,
+        created_by: actor.sub,
+        created_by_role: actor.role,
+        created_at: doc.createdAt,
+        updated_at: doc.updatedAt,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    jobId = data.id as string;
+
     await writeAuditLog({
       actorId: actor.sub,
       actorRole: actor.role,
       action: "generation.manual_edit.created",
-      target: ref.id,
+      target: jobId,
       metadata: { brandId: input.brandId, postType: input.postType },
     });
   }
 
   const webhook = await sendManualEditWebhook({
     event: "manual_edit.submitted",
-    jobId: ref.id,
+    jobId,
     submittedAt: doc.createdAt,
     actor,
     input: sanitizedInput,
@@ -77,5 +107,5 @@ export async function createManualEditJob(input: ManualEditInput, actor: Session
     status: doc.status,
   });
 
-  return { id: ref.id, ...doc, webhook };
+  return { id: jobId, ...doc, webhook };
 }

@@ -4,10 +4,9 @@ const serverEnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   NEXT_PUBLIC_APP_URL: z.string().url(),
   AUTH_SECRET: z.string().min(32),
-  FIREBASE_PROJECT_ID: z.string().min(1),
-  FIREBASE_CLIENT_EMAIL: z.string().email(),
-  FIREBASE_PRIVATE_KEY: z.string().min(1),
-  FIREBASE_STORAGE_BUCKET: z.string().min(1),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-4.1-mini"),
   N8N_WEBHOOK_URL: z.string().url().optional().or(z.literal("")),
@@ -20,12 +19,11 @@ export type ServerEnv = z.infer<typeof serverEnvSchema>;
 
 let cachedEnv: ServerEnv | null = null;
 
-export function hasFirebaseAdminEnv() {
+export function hasSupabaseAdminEnv() {
   return Boolean(
-    process.env.FIREBASE_PROJECT_ID &&
-      process.env.FIREBASE_CLIENT_EMAIL &&
-      process.env.FIREBASE_PRIVATE_KEY &&
-      process.env.FIREBASE_STORAGE_BUCKET,
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
   );
 }
 

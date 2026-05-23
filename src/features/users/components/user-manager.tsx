@@ -10,8 +10,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CSRF_COOKIE } from "@/lib/auth/session";
 import { getCookie } from "@/lib/browser/cookies";
-import type { ManagedDevUser } from "@/features/auth/dev-users";
 import type { Role, UserStatus } from "@/types/auth";
+
+type ManagedUser = {
+  id: string;
+  username: string;
+  usernameLower: string;
+  displayName: string;
+  role: Role;
+  status: UserStatus;
+  lastLoginAt?: string;
+};
 
 const initialForm = {
   id: "",
@@ -23,7 +32,7 @@ const initialForm = {
 };
 
 export function UserManager() {
-  const [users, setUsers] = useState<ManagedDevUser[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -39,7 +48,7 @@ export function UserManager() {
       return;
     }
 
-    const json = (await response.json()) as { users: ManagedDevUser[] };
+    const json = (await response.json()) as { users: ManagedUser[] };
     setUsers(json.users);
     setLoading(false);
   }
@@ -53,7 +62,7 @@ export function UserManager() {
           throw new Error("Could not load users.");
         }
 
-        return response.json() as Promise<{ users: ManagedDevUser[] }>;
+        return response.json() as Promise<{ users: ManagedUser[] }>;
       })
       .then((json) => {
         if (active) {
@@ -76,7 +85,7 @@ export function UserManager() {
     };
   }, []);
 
-  function editUser(user: ManagedDevUser) {
+  function editUser(user: ManagedUser) {
     setForm({
       id: user.id,
       username: user.username,
@@ -120,7 +129,7 @@ export function UserManager() {
     await loadUsers();
   }
 
-  async function removeUser(user: ManagedDevUser) {
+  async function removeUser(user: ManagedUser) {
     const response = await fetch("/api/users", {
       method: "DELETE",
       headers: {
@@ -144,7 +153,7 @@ export function UserManager() {
       <Card>
         <CardHeader>
           <CardTitle>{isEditing ? "Update user" : "Add user"}</CardTitle>
-          <CardDescription>Development users are API-backed and can log in during this local phase.</CardDescription>
+          <CardDescription>Supabase users are API-backed and can log in after seeding.</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={saveUser}>
@@ -221,7 +230,7 @@ export function UserManager() {
       <Card>
         <CardHeader>
           <CardTitle>Users</CardTitle>
-          <CardDescription>Add, update, disable, or delete local development accounts.</CardDescription>
+          <CardDescription>Add, update, disable, or delete Supabase-backed accounts.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? <p className="text-sm text-muted-foreground">Loading users...</p> : null}

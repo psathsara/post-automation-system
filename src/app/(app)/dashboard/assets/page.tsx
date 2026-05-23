@@ -6,7 +6,7 @@ export default function AssetsPage() {
       <div>
         <h2 className="text-2xl font-semibold tracking-normal">Assets</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Uploaded images are stored in Firebase Storage through server-side validation.
+          Uploaded images are stored in Supabase Storage through server-side validation.
         </p>
       </div>
       <Card>

@@ -1,13 +1,40 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getAdminDb } from "@/lib/firebase/admin";
 import { findDevUser } from "@/features/auth/dev-users";
 import { loginSchema } from "@/features/auth/schemas";
-import { hasFirebaseAdminEnv } from "@/lib/env/server";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { SESSION_COOKIE, sessionCookieOptions, signSession, type SessionPayload } from "@/lib/auth/session";
 import { verifyPassword } from "@/lib/auth/password";
 import { writeAuditLog } from "@/lib/audit/audit-log";
+import { getSupabaseAdmin, hasSupabaseAdminEnv } from "@/lib/supabase/server";
 import type { AppUser } from "@/types/auth";
+
+type SupabaseUserRow = {
+  id: string;
+  username: string;
+  username_lower: string;
+  display_name: string;
+  role: AppUser["role"];
+  status: AppUser["status"];
+  password_hash: string;
+  created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
+};
+
+function mapSupabaseUser(row: SupabaseUserRow): AppUser {
+  return {
+    id: row.id,
+    username: row.username,
+    usernameLower: row.username_lower,
+    displayName: row.display_name,
+    role: row.role,
+    status: row.status,
+    passwordHash: row.password_hash,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastLoginAt: row.last_login_at ?? undefined,
+  };
+}
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
@@ -24,10 +51,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 400 });
   }
 
-  if (!hasFirebaseAdminEnv() && process.env.NODE_ENV !== "production") {
+  if (!hasSupabaseAdminEnv() && process.env.NODE_ENV !== "production") {
     const devUser = findDevUser(parsed.data.username, parsed.data.password);
 
-    if (!devUser) {
+    if (!devUser || devUser.status !== "ACTIVE") {
       return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
     }
 
@@ -53,28 +80,30 @@ export async function POST(request: NextRequest) {
   }
 
   const usernameLower = parsed.data.username.toLowerCase();
-  const snapshot = await getAdminDb()
-    .collection("users")
-    .where("usernameLower", "==", usernameLower)
-    .limit(5)
-    .get();
+  const supabase = getSupabaseAdmin();
+  const { data: rows, error } = await supabase
+    .from<SupabaseUserRow[]>("users")
+    .select(
+      "id, username, username_lower, display_name, role, status, password_hash, created_at, updated_at, last_login_at",
+    )
+    .eq("username_lower", usernameLower)
+    .limit(5);
 
-  if (snapshot.empty) {
+  if (error) {
+    return NextResponse.json({ error: "Authentication service unavailable." }, { status: 503 });
+  }
+
+  if (!rows || rows.length === 0) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  let matched:
-    | {
-        doc: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>;
-        user: AppUser;
-      }
-    | null = null;
+  let matched: AppUser | null = null;
 
-  for (const candidate of snapshot.docs) {
-    const user = { id: candidate.id, ...candidate.data() } as AppUser;
+  for (const row of rows) {
+    const user = mapSupabaseUser(row);
 
     if (await verifyPassword(parsed.data.password, user.passwordHash)) {
-      matched = { doc: candidate, user };
+      matched = user;
       break;
     }
   }
@@ -83,7 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid credentials." }, { status: 401 });
   }
 
-  const { doc, user } = matched;
+  const user = matched;
 
   if (user.status !== "ACTIVE") {
     return NextResponse.json({ error: "Account disabled." }, { status: 403 });
@@ -102,7 +131,8 @@ export async function POST(request: NextRequest) {
     role: sessionUser.role,
   });
 
-  await doc.ref.update({ lastLoginAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  const now = new Date().toISOString();
+  await supabase.from("users").update({ last_login_at: now, updated_at: now }).eq("id", user.id);
   await writeAuditLog({
     actorId: user.id,
     actorRole: user.role,

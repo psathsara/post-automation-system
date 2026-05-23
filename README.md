@@ -6,7 +6,7 @@ Internal ERP-style AI content generation platform for Jayalath Campus and sub-br
 
 - Next.js App Router, TypeScript, Tailwind CSS v4
 - ShadCN-style UI primitives
-- Firebase Firestore and Storage
+- Supabase Postgres and Storage
 - Credentials auth with bcrypt, signed HttpOnly sessions, CSRF, RBAC
 - Zod, React Hook Form, Zustand-ready feature structure
 - OpenAI provider abstraction, n8n webhook-ready workflow architecture
@@ -21,7 +21,7 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-Local development login works with the default accounts even before Firebase is configured. For Firebase-backed auth, copy `.env.example` to `.env.local`, fill the Firebase values, then run `npm run seed:firebase`.
+Local development login works with the default accounts even before Supabase is configured. For Supabase-backed auth, copy `.env.example` to `.env.local`, fill the Supabase values, run the SQL in `docs/supabase-setup.md`, then run `npm run seed:supabase`.
 
 ## Default development accounts
 
@@ -33,14 +33,15 @@ The two admin accounts share the username because that was requested. For produc
 
 ## Documentation
 
-- `docs/firebase-setup.md`
+- `docs/supabase-setup.md`
 - `docs/architecture.md`
-- `docs/firestore-schema.md`
+- `docs/supabase-schema.md`
 
 ## Scripts
 
 - `npm run dev` - local development server
 - `npm run build` - production build
 - `npm run check` - lint and type-check
-- `npm run seed:firebase` - seed default users
+- `npm run seed:supabase` - seed default users
+- `npm run seed:firebase` - compatibility alias for `seed:supabase`
 - `npm run security:audit` - dependency audit excluding dev dependencies

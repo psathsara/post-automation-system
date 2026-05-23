@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServerEnv } from "@/lib/env/server";
-import { getAdminDb } from "@/lib/firebase/admin";
 import { writeAuditLog } from "@/lib/audit/audit-log";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   const env = getServerEnv();
@@ -18,14 +18,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "jobId is required." }, { status: 400 });
   }
 
-  await getAdminDb().collection("generationJobs").doc(jobId).set(
-    {
+  const { error } = await getSupabaseAdmin()
+    .from("generation_jobs")
+    .update({
       status: body.status ?? "WORKFLOW_UPDATED",
-      workflowResult: body,
-      updatedAt: new Date().toISOString(),
-    },
-    { merge: true },
-  );
+      workflow_result: body,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId);
+
+  if (error) {
+    return NextResponse.json({ error: "Could not update workflow job." }, { status: 500 });
+  }
 
   await writeAuditLog({
     action: "workflow.n8n.manual_edit.updated",
