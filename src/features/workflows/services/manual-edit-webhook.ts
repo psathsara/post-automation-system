@@ -2,6 +2,7 @@ import "server-only";
 
 import type { BrandProfile } from "@/config/brands";
 import { getManualEditWebhookSettings } from "@/features/workflows/dev-workflow-settings";
+import type { ManualEditWebhookSettings } from "@/features/workflows/schemas";
 import type { AiPostPlan } from "@/features/generation/services/ai-provider";
 import type { ManualEditInput } from "@/features/generation/schemas";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -19,8 +20,27 @@ type ManualEditWebhookPayload = {
   status: string;
 };
 
+function getResolvedWebhookSettings(): ManualEditWebhookSettings {
+  const savedSettings = getManualEditWebhookSettings();
+
+  if (savedSettings.enabled && savedSettings.url) {
+    return savedSettings;
+  }
+
+  if (process.env.N8N_WEBHOOK_URL) {
+    return {
+      enabled: true,
+      url: process.env.N8N_WEBHOOK_URL,
+      method: "POST",
+      secret: process.env.N8N_WEBHOOK_SECRET ?? "",
+    };
+  }
+
+  return savedSettings;
+}
+
 export async function sendManualEditWebhook(payload: ManualEditWebhookPayload) {
-  const settings = getManualEditWebhookSettings();
+  const settings = getResolvedWebhookSettings();
 
   if (!settings.enabled || !settings.url) {
     return { sent: false, reason: "Webhook is not configured." };
@@ -34,26 +54,34 @@ export async function sendManualEditWebhook(payload: ManualEditWebhookPayload) {
     headers["x-manual-edit-secret"] = settings.secret;
   }
 
-  const targetUrl = new URL(settings.url);
-  const response =
-    settings.method === "GET"
-      ? await fetch(withPayloadQuery(targetUrl, payload), {
-          method: "GET",
-          headers,
-          cache: "no-store",
-        })
-      : await fetch(targetUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(payload),
-          cache: "no-store",
-        });
+  try {
+    const targetUrl = new URL(settings.url);
+    const response =
+      settings.method === "GET"
+        ? await fetch(withPayloadQuery(targetUrl, payload), {
+            method: "GET",
+            headers,
+            cache: "no-store",
+          })
+        : await fetch(targetUrl, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(payload),
+            cache: "no-store",
+          });
 
-  return {
-    sent: response.ok,
-    status: response.status,
-    statusText: response.statusText,
-  };
+    return {
+      sent: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+      reason: response.ok ? undefined : "Webhook endpoint returned a non-success status.",
+    };
+  } catch (error) {
+    return {
+      sent: false,
+      reason: error instanceof Error ? error.message : "Webhook request failed.",
+    };
+  }
 }
 
 function withPayloadQuery(url: URL, payload: ManualEditWebhookPayload) {

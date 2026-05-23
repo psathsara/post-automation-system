@@ -126,14 +126,18 @@ export function ManualEditForm() {
       }
 
       const json = (await response.json()) as {
-        job: { id: string; webhook?: { sent: boolean; status?: number; reason?: string } };
+        job: { id: string; webhook?: { sent: boolean; status?: number; statusText?: string; reason?: string } };
       };
       setResult(json.job.id);
-      toast.success(
-        json.job.webhook?.sent
-          ? "Manual Edit job created and sent to n8n."
-          : "Manual Edit job created. Webhook was not sent.",
-      );
+      if (json.job.webhook?.sent) {
+        toast.success("Manual Edit job created and sent to n8n.");
+      } else {
+        toast.warning(
+          json.job.webhook?.reason
+            ? `Manual Edit job created. Webhook was not sent: ${json.job.webhook.reason}`
+            : "Manual Edit job created. Webhook was not sent.",
+        );
+      }
       form.reset(values);
       setFiles([]);
     } catch (error) {

@@ -28,7 +28,21 @@ export async function GET() {
     return auth.error;
   }
 
-  return NextResponse.json({ settings: getManualEditWebhookSettings() });
+  const settings = getManualEditWebhookSettings();
+  const envUrl = process.env.N8N_WEBHOOK_URL;
+
+  return NextResponse.json({
+    settings:
+      settings.enabled && settings.url
+        ? settings
+        : {
+            ...settings,
+            enabled: Boolean(envUrl),
+            url: envUrl ?? settings.url,
+            method: envUrl ? "POST" : settings.method,
+            secret: settings.secret,
+          },
+  });
 }
 
 export async function PUT(request: Request) {

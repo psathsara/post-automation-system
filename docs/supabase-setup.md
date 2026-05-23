@@ -108,3 +108,14 @@ Default development credentials:
 - USER: `user` / `User123`
 
 The two admin accounts intentionally share the username because that was requested. For production, move to unique usernames and rotate all default passwords.
+
+## 4. Configure n8n webhook
+
+For Vercel, add this environment variable and redeploy:
+
+```env
+N8N_WEBHOOK_URL=https://your-n8n-host/webhook/your-production-path
+N8N_WEBHOOK_SECRET=
+```
+
+Use the n8n **Production URL** (`/webhook/...`) for normal operation and activate the workflow. The n8n **Test URL** (`/webhook-test/...`) only receives requests while the webhook node is actively listening for a test event.
