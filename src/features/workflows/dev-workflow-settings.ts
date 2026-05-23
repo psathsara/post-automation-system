@@ -38,6 +38,11 @@ function loadSettings(): ManualEditWebhookSettings {
 }
 
 function saveSettings(settings: ManualEditWebhookSettings) {
-  mkdirSync(dirname(settingsPath), { recursive: true });
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  try {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch {
+    // Vercel serverless filesystems are not durable/writable for app settings.
+    // Keep the in-memory value for the warm instance and prefer env vars in production.
+  }
 }

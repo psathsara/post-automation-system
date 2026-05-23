@@ -74,7 +74,9 @@ export async function sendManualEditWebhook(payload: ManualEditWebhookPayload) {
       sent: response.ok,
       status: response.status,
       statusText: response.statusText,
-      reason: response.ok ? undefined : "Webhook endpoint returned a non-success status.",
+      reason: response.ok
+        ? undefined
+        : `Webhook endpoint returned ${response.status} ${response.statusText}.`,
     };
   } catch (error) {
     return {
