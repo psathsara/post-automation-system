@@ -30,6 +30,7 @@ type SupabaseAdminClient = {
           metadata?: Record<string, string>;
         },
       ) => Promise<{ data: unknown; error: { message: string } | null }>;
+      download: (path: string) => Promise<{ data: Blob | null; error: { message: string } | null }>;
     };
   };
 };

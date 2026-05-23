@@ -10,6 +10,10 @@ import { getSupabaseAdmin, hasSupabaseAdminEnv } from "@/lib/supabase/server";
 const allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const maxBytes = 10 * 1024 * 1024;
 
+function getPublicUploadUrl(request: NextRequest, fileName: string) {
+  return new URL(`/api/uploads/${fileName}`, request.nextUrl.origin).toString();
+}
+
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
 
@@ -40,13 +44,11 @@ export async function POST(request: NextRequest) {
 
     const ext = file.type.split("/")[1] === "jpeg" ? "jpg" : file.type.split("/")[1];
     const fileName = `${randomUUID()}.${ext}`;
-    const path = useSupabaseStorage
-      ? `brands/${brandId}/uploads/${fileName}`
-      : `/uploads/manual-edit/${brandId}/${fileName}`;
+    const storagePath = `uploads/${fileName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     if (storage) {
-      const { error } = await storage.upload(path, buffer, {
+      const { error } = await storage.upload(storagePath, buffer, {
         contentType: file.type,
         upsert: false,
         metadata: {
@@ -59,15 +61,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Image upload failed." }, { status: 500 });
       }
     } else {
-      const uploadDir = join(process.cwd(), "public", "uploads", "manual-edit", brandId);
+      const uploadDir = join(process.cwd(), "public", "uploads");
       await mkdir(uploadDir, { recursive: true });
       await writeFile(join(uploadDir, fileName), buffer);
     }
 
     uploaded.push({
       name: file.name,
-      path,
-      url: useSupabaseStorage ? undefined : path,
+      url: getPublicUploadUrl(request, fileName),
       contentType: file.type,
       size: file.size,
     });

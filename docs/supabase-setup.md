@@ -92,6 +92,7 @@ on conflict (id) do update set
 ```
 
 The app uses `SUPABASE_SERVICE_ROLE_KEY` from server-only code, so these tables do not need anon policies for the current UI.
+Uploaded images are stored privately in the `assets` bucket under `uploads/{filename}` and served publicly through the app route `/api/uploads/{filename}`. n8n receives full public URLs such as `https://post-automation-system.vercel.app/api/uploads/{filename}`.
 
 ## 3. Seed default users
 

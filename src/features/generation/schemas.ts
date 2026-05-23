@@ -3,8 +3,8 @@ import { brandIds } from "@/config/brands";
 
 export const assetSchema = z.object({
   name: z.string().min(1).max(180),
-  path: z.string().min(1).max(500),
-  url: z.string().max(1000).optional(),
+  path: z.string().min(1).max(500).optional(),
+  url: z.string().url().max(1000),
   contentType: z.string().min(1).max(80),
   size: z.number().int().positive().max(10 * 1024 * 1024),
 });
